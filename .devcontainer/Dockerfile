@@ -27,9 +27,6 @@ RUN apt update && apt upgrade -y
 # Install Git and other utilities
 RUN apt install -y git psmisc wget acl software-properties-common lxterminal
 
-# Install Gazebo
-RUN apt install -y gazebo
-
 # Install Turtlebot 4
 RUN apt update && apt install -y ros-jazzy-turtlebot4-simulator ros-jazzy-irobot-create-nodes
 
