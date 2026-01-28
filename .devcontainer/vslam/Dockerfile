@@ -1,4 +1,4 @@
-FROM ghcr.io/uoy-robostar/ros2-tb3:main
+FROM ghcr.io/uoy-robostar/ros2-tb4:main
 
 # Install pangolin dependencies
 # RUN sudo apt update && sudo apt install -y curl zip unzip tar nasm

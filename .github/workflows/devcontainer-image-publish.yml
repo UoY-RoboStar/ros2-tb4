@@ -24,15 +24,11 @@ jobs:
 
       - name: Build and run Dev Container task
         uses: devcontainers/ci@v0.3
-        env:
-          GIT_AUTH_TOKEN: ${{ secrets.ARGOS3_ROS2_BRIDGE_GIT_TOKEN }}
         with:
           # Change this to point to your image name
-          imageName: ghcr.io/uoy-robostar/ros2-tb3/auro-dev
+          imageName: ghcr.io/uoy-robostar/ros2-tb4/auro-dev
           runCmd: echo "success"
           refFilterForPush: refs/heads/main
-          env: |
-            GIT_AUTH_TOKEN=${{ secrets.ARGOS3_ROS2_BRIDGE_GIT_TOKEN }}
 
   build-vlsam:
     needs: build
@@ -55,7 +51,7 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           # Change this to point to your image name
-          imageName: ghcr.io/uoy-robostar/ros2-tb3/vslam-dev
+          imageName: ghcr.io/uoy-robostar/ros2-tb4/vslam-dev
           runCmd: echo "success"
           configFile: ./.devcontainer/vslam/devcontainer.json
           refFilterForPush: refs/heads/main
