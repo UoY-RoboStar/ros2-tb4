@@ -1,0 +1,263 @@
+# syntax=docker/dockerfile:1.10.0
+
+FROM osrf/ros:jazzy-desktop-full
+
+# Add ubuntu user with same UID and GID as your host system, if it doesn't already exist
+# Since Ubuntu 24.04, a non-root user is created by default with the name vscode and UID=1000
+ARG USERNAME=ubuntu
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN if ! id -u $USER_UID >/dev/null 2>&1; then \
+        groupadd --gid $USER_GID $USERNAME && \
+        useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME; \
+    fi
+# Add sudo support for the non-root user
+RUN apt-get update && \
+    apt-get install -y sudo && \
+    echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Install alsa-utils so we can setup null plugin
+RUN apt install -y alsa-utils
+RUN echo 'pcm.!default { type null }' >> /etc/asound.conf
+
+# Update all packages
+RUN apt update && apt upgrade -y
+
+# Install Git and other utilities
+RUN apt install -y git psmisc wget acl software-properties-common lxterminal
+
+# Install Gazebo
+RUN apt install -y gazebo
+
+# Install Turtlebot 4
+RUN apt update && apt install -y ros-jazzy-turtlebot4-simulator ros-jazzy-irobot-create-nodes
+
+# # Install rtabmap-ros
+# RUN apt update && apt install -y ros-jazzy-rtabmap-ros
+
+# # Install movit2
+# RUN apt update && apt install -y ros-jazzy-moveit ros-jazzy-moveit-resources-panda-moveit-config
+
+# # Install extra Gazebo plugins
+# RUN apt update && apt install -y ros-jazzy-gazebo-ros2-control
+
+# # Install RMW CycloneDDS
+# RUN apt install -y ros-jazzy-rmw-cyclonedds-cpp
+
+# Install useful Python3 packages
+RUN apt install -y python3-pip python3-rosdep python3-argcomplete python3-transforms3d
+
+# Install mesa utils
+RUN apt update && apt install -y mesa-utils
+
+# Install OpenCL for Intel
+RUN apt update && apt install -y intel-opencl-icd clinfo
+
+# Update mesa drivers to latest version
+RUN add-apt-repository ppa:kisak/turtle && \
+    apt update && \
+    apt upgrade -y 
+
+# Switch from root to user
+USER $USERNAME
+
+# Fix fluxbox environment
+RUN mkdir -p /home/$USERNAME/.fluxbox/styles
+COPY fluxbox/init /home/$USERNAME/.fluxbox/init
+COPY fluxbox/menu /home/$USERNAME/.fluxbox/menu
+COPY fluxbox/qnx-photon-mod /home/$USERNAME/.fluxbox/styles/qnx-photon-mod
+
+# Add user to video group to allow access to webcam
+RUN sudo usermod --append --groups video $USERNAME
+
+# Rosdep update
+RUN rosdep update
+
+# Ignore warning for colcon builds
+RUN echo 'export PYTHONWARNINGS=ignore:::setuptools.command.install,ignore:::setuptools.command.easy_install,ignore:::pkg_resources' >> ~/.bashrc
+
+# Disable Gazebo logging by default
+RUN echo 'export GAZEBO_LOG_ENABLE=0' >> ~/.bashrc
+
+# Colcon_cd
+RUN echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> ~/.bashrc
+RUN echo "export _colcon_cd_root=/opt/ros/jazzy/" >> ~/.bashrc
+
+# Colcon auto-complete
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> ~/.bashrc
+
+# # Set default RMW implementation
+# RUN echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> ~/.bashrc
+
+# # Set default turtlebot3 model
+# RUN echo 'export TURTLEBOT3_MODEL=waffle_pi' >> ~/.bashrc
+
+# # Gazebo configuration
+# RUN echo 'source /usr/share/gazebo/setup.sh' >> ~/.bashrc
+
+# Source the ROS setup file
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
+
+# # Install useful Python3 packages from pip as user
+# RUN pip install gdown pydantic angles transitions python-statemachine
+
+# Update PATH
+RUN echo "export PATH=\$PATH:/home/ubuntu/.local/bin" >> ~/.bashrc
+
+# Setup movit2_tutorials
+SHELL ["/bin/bash", "-c"]
+# RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+#     mkdir -p /home/$USERNAME/ws_moveit/src && \
+#     cd /home/$USERNAME/ws_moveit/src && \
+#     git clone -b ${ROS_DISTRO} https://github.com/moveit/moveit_task_constructor.git && \
+#     git clone -b ${ROS_DISTRO} https://github.com/moveit/moveit2_tutorials && \
+#     cd ../ && \
+#     rosdep install -r --from-paths . --ignore-src --rosdistro ${ROS_DISTRO} -y && \
+#     colcon build && \
+#     rm -rf build/ log/ src/ && \
+#     echo "source /home/${USERNAME}/ws_moveit/install/setup.bash" >> ~/.bashrc
+
+# # Install moveit2 from source, including tutorials
+# RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+#     mkdir -p /home/${USERNAME}/ws_moveit/src && \
+#     cd /home/${USERNAME}/ws_moveit/src && \
+#     colcon --log-base /dev/null mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml && \
+#     colcon --log-base /dev/null mixin update default && \
+#     git clone -b main https://github.com/moveit/moveit2_tutorials && \
+#     vcs import --recursive < moveit2_tutorials/moveit2_tutorials.repos && \
+#     sudo apt remove ros-$ROS_DISTRO-moveit* -y && \
+#     sudo apt update && rosdep install -r --from-paths . --ignore-src --rosdistro $ROS_DISTRO -y && \
+#     cd /home/${USERNAME}/ws_moveit/ && \
+#     colcon build --mixin release && \
+#     rm -rf build/ log/ src/ && \
+#     echo "source /home/${USERNAME}/ws_moveit/install/setup.bash" >> ~/.bashrc
+
+# # Install ARGoS3 simulator
+# RUN /home/${USERNAME}/.local/bin/gdown --fuzzy https://drive.google.com/file/d/1gnWfCqNmbCQbxNDenp5-ek7P5bvTNgyD/view?usp=share_link -O /home/${USERNAME}/argos3_simulator-3.0.0-x86_64-beta59.deb && \
+#     sudo apt update && sudo apt install -y /home/${USERNAME}/argos3_simulator-3.0.0-x86_64-beta59.deb && \
+#     rm /home/${USERNAME}/argos3_simulator-3.0.0-x86_64-beta59.deb
+
+# # Install ARGoS3 examples and build them
+# RUN git clone https://github.com/ilpincy/argos3-examples.git /home/${USERNAME}/argos3-examples && \
+#     mkdir -p /home/${USERNAME}/argos3-examples/build && \
+#     cd /home/${USERNAME}/argos3-examples/build && \
+#     cmake -DCMAKE_BUILD_TYPE=Release .. && \
+#     make
+
+# # Install GSL libraries
+# RUN sudo apt update && sudo apt install -y libgsl27 libgsl-dev
+
+# # Install ARGos3 ROS2 bridge
+# RUN --mount=type=secret,id=GIT_AUTH_TOKEN,env=GIT_AUTH_TOKEN export OpenGL_GL_PREFERENCE=GLVND && \
+#     mkdir -p /home/${USERNAME}/bridge_ws/src && \
+#     git clone https://${GIT_AUTH_TOKEN}@github.com/UoY-RoboStar/argos3-ros2-bridge.git /home/${USERNAME}/bridge_ws/src/argos3-ros2-bridge && \
+#     cd /home/${USERNAME}/bridge_ws && \
+#     source /opt/ros/${ROS_DISTRO}/setup.bash && \
+#     colcon build --packages-select argos3_ros2_bridge && \
+#     colcon build --packages-select argos3_ros2_bridge --cmake-args -DFIRST_TIME=Off && \
+#     echo "export ARGOS_PLUGIN_PATH=/home/${USERNAME}/argos3-examples:/home/${USERNAME}/bridge_ws/install/argos3_ros2_bridge/lib:\$ARGOS_PLUGIN_PATH" >> ~/.bashrc && \
+#     echo "export LD_LIBRARY_PATH=\$ARGOS_PLUGIN_PATH:\$LD_LIBRARY_PATH" >> ~/.bashrc && \
+#     echo "source /home/${USERNAME}/bridge_ws/install/local_setup.bash" >> ~/.bashrc
+
+# # Set ARGoS3 alias to use llvmpipe if running in a container without GPU support or WSL2
+# RUN cat <<'EOF' >> ~/.bashrc
+# argos3() {
+#   if [ "$GALLIUM_DRIVER" = "d3d12" ]; then
+#     GALLIUM_DRIVER=llvmpipe command argos3 "$@"
+#   else
+#     command argos3 "$@"
+#   fi
+# }
+# EOF
+
+ARG USERNAME=ubuntu
+USER $USERNAME
+
+# # Install pangolin dependencies and other required packages
+# RUN sudo apt update && sudo apt install -y libglew-dev ffmpeg unzip
+
+# # Pangolin
+# RUN cd /home/${USERNAME}/ && \
+#     git clone https://github.com/stevenlovegrove/Pangolin.git && \
+#     cd Pangolin && \  
+#     git checkout ad8b5f83 && \ 
+#     sed -i -e "193,198d" ./src/utils/file_utils.cpp && \ 
+#     mkdir -p build && \
+#     cd build && \
+#     cmake \
+#     -DCMAKE_BUILD_TYPE=Release \
+#     -DBUILD_EXAMPLES=OFF \
+#     -DBUILD_PANGOLIN_DEPTHSENSE=OFF \
+#     -DBUILD_PANGOLIN_FFMPEG=OFF \
+#     -DBUILD_PANGOLIN_LIBDC1394=OFF \
+#     -DBUILD_PANGOLIN_LIBJPEG=OFF \
+#     -DBUILD_PANGOLIN_LIBOPENEXR=OFF \
+#     -DBUILD_PANGOLIN_LIBPNG=OFF \
+#     -DBUILD_PANGOLIN_LIBREALSENSE=OFF \
+#     -DBUILD_PANGOLIN_LIBREALSENSE2=OFF \
+#     -DBUILD_PANGOLIN_LIBTIFF=OFF \
+#     -DBUILD_PANGOLIN_LIBUVC=OFF \
+#     -DBUILD_PANGOLIN_LZ4=OFF \
+#     -DBUILD_PANGOLIN_OPENNI=OFF \
+#     -DBUILD_PANGOLIN_OPENNI2=OFF \
+#     -DBUILD_PANGOLIN_PLEORA=OFF \
+#     -DBUILD_PANGOLIN_PYTHON=OFF \
+#     -DBUILD_PANGOLIN_TELICAM=OFF \
+#     -DBUILD_PANGOLIN_TOON=OFF \
+#     -DBUILD_PANGOLIN_UVC_MEDIAFOUNDATION=OFF \
+#     -DBUILD_PANGOLIN_V4L=OFF \
+#     -DBUILD_PANGOLIN_VIDEO=OFF \
+#     -DBUILD_PANGOLIN_ZSTD=OFF \
+#     -DBUILD_PYPANGOLIN_MODULE=OFF \
+#     .. && \
+#     make -j$(($(nproc) / 2)) && \
+#     sudo make install && \
+#     cd / && rm -rf Pangolin
+
+# # Iridescence
+# RUN sudo apt update && sudo apt install -y libglm-dev libglfw3-dev libpng-dev libjpeg-dev libeigen3-dev libboost-filesystem-dev libboost-program-options-dev && \
+#     cd /home/${USERNAME}/ && \
+#     git clone https://github.com/koide3/iridescence.git && \
+#     cd iridescence && \
+#     git checkout 085322e0c949f75b67d24d361784e85ad7f197ab && \
+#     git submodule update --init --recursive && \
+#     mkdir -p build && cd build && \
+#     cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
+#     make -j"$(($(nproc)/2))" && \
+#     sudo make install && \
+#     rm -rf /home/${USERNAME}/iridescence
+
+# # Stella VSLAM
+# SHELL ["/bin/bash", "-c"]
+# RUN mkdir -p /home/${USERNAME}/lib && \
+#     cd /home/${USERNAME}/lib && \
+#     git clone --recursive --depth 1 https://github.com/stella-cv/stella_vslam.git && \
+#     rosdep install -y -i --from-paths ~/lib && \
+#     cd /home/${USERNAME}/lib/stella_vslam && \
+#     mkdir -p /home/${USERNAME}/lib/stella_vslam/build && \
+#     cd /home/${USERNAME}/lib/stella_vslam/build && \
+#     source /opt/ros/${ROS_DISTRO}/setup.bash && \
+#     cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
+#     make -j"$(($(nproc)/2))" && \
+#     sudo make install && \
+#     rm -rf /home/${USERNAME}/lib/stella_vslam
+
+# # Stella vslam ROS
+# RUN mkdir -p /home/${USERNAME}/stella/src && \
+#     source /opt/ros/${ROS_DISTRO}/setup.bash && \
+#     cd /home/${USERNAME}/stella/src && \
+#     git clone --recursive -b ros2 --depth 1 https://github.com/stella-cv/stella_vslam_ros.git && \
+#     cd /home/${USERNAME}/stella && \
+#     rosdep install -y -i --from-paths /home/${USERNAME}/stella/src --skip-keys=stella_vslam && \
+#     colcon build && \
+#     rm -rf build/ log/ src/
+
+# RUN mkdir -p /home/${USERNAME}/stella/vocab && \
+#     curl -L -o /home/${USERNAME}/stella/vocab/orb_vocab.fbow \
+#     https://raw.githubusercontent.com/stella-cv/FBoW_orb_vocab/main/orb_vocab.fbow    
+
+# Update ldconfig
+USER root
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/stella_vslam.conf && ldconfig
+USER $USERNAME
