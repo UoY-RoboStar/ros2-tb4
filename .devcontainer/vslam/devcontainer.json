@@ -1,5 +1,5 @@
 {
-    "name": "auro-vslam",
+    "name": "rs2ros-vslam",
     "build": {
         "dockerfile":"Dockerfile",
         "options": [ "--secret=type=env,id=GIT_AUTH_TOKEN,env=GIT_AUTH_TOKEN" ]

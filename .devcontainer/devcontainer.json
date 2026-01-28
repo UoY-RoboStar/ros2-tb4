@@ -1,5 +1,5 @@
 {
-    "name": "auro",
+    "name": "rs2ros",
     "build": {
         "dockerfile":"Dockerfile",
         "options": [ "--secret=type=env,id=GIT_AUTH_TOKEN,env=GIT_AUTH_TOKEN" ]

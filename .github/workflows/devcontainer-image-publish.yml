@@ -26,7 +26,7 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           # Change this to point to your image name
-          imageName: ghcr.io/uoy-robostar/ros2-tb4/auro-dev
+          imageName: ghcr.io/uoy-robostar/ros2-tb4/rs2ros-dev
           runCmd: echo "success"
           refFilterForPush: refs/heads/main
 
